@@ -50,7 +50,7 @@ $pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
 #function takes in a name to alert confirmation of an action
 function confirm($name)
 {
-    Centeralize "$name`n" "Red";Center " ";$answer = Read-Host;Write-Host " "
+    Centeralize "$name" "Red";$answer = Read-Host;Write-Host " "
     Switch($answer)
     {
         yes{$result=0}
@@ -224,6 +224,7 @@ function AskHowToDelete($Question)
     #Notify User to enter Forest Domain to Search. Then define the Forest Object Once
     Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
     Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
+    Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
     function AskForForest()
     {
         Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
