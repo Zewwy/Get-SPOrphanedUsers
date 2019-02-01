@@ -17,18 +17,30 @@
 #File not found from SQL query response
 $BadfileQry = "Sorry mate but it seems the dingo ate your file."
 #MyLogoArray
-$MylogoArray = @("#####################################","# This script is brought to you by: #","#                                   #","#             Zewwy                 #","#                                   #","#####################################"," ")
-#Static Variables
+$MylogoArray = @(
+    ("#####################################"),
+    ("# This script is brought to you by: #"),
+    ("#                                   #"),
+    ("#             Zewwy                 #"),
+    ("#                                   #"),
+    ("#####################################"),
+    (" ")
+)
+
 $ScriptName = "Get-SPOrphanedUsers; cause some SharePoint users just suck and don't exist.`n"
-$SQLServer = "Server\instance"
+$SQLServer = "Server\Instance"
 $DB = "WSS_Content"
-$pswheight = (get-host).UI.RawUI.MaxWindowSize.Height
-$pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
-# Script Variables, Domain1 and Domain2 are the domains to be filtered.
 #If domain vars are not altered, and do not exist script still works fine
 $Logfile = "C:\SPOrphanedUsers.log"
 $Domain1 = "Domain1"
 $Domain2 = "Domain2"
+#------------------------------------------------------------------------------------------------------------------------
+#Static Variables
+#------------------------------------------------------------------------------------------------------------------------
+$pswheight = (get-host).UI.RawUI.MaxWindowSize.Height
+$pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
+# Script Variables, Domain1 and Domain2 are the domains to be filtered.
+
 #endregion
 #region Functions
 ##########################################################################################################################
@@ -65,7 +77,6 @@ function center($S)
 }
 
 #Function to Centeralize Write-Host Output, Just take string variable parameter and pads it
-#Nerd Level over 9000!!! Ad-hoc Polymorphic power time!!
 function Centeralize()
 {
   param(
@@ -109,7 +120,6 @@ function CheckForestGroupObject()
         }
         return $false
 }
-
 #Function to check Object against Forest
 function CheckForestObject()
 {
@@ -191,154 +201,157 @@ function AskHowToDelete($Question)
 }
 #endregion
 #region Run
-#region DisplayLogo
-#Start actual script by posting and asking user for responses
-foreach($L in $MylogoArray){Centeralize $L "green"}
-Centeralize $ScriptName "White"
-#endregion
-#region AskForWebAppURL
-function AskForWebAppURL()
-{
-#Notify User to enter the Site Collection URL then check if it exits.
-Centeralize "Please enter a SharePoint Web App URL`n"
-Write-host "SharePoint Web Application URL: " -ForegroundColor Magenta -NoNewline
-$Script:WebAppURL = Read-Host
-Write-Host " "
-if(!$WebAppURL){AskForWebAppURL}
-if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue){Centeralize "Web App Exists: $WebAppURL`n" "Green"}else{Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;}
-}
-AskForWebAppURL
-#endregion
-#region AskSearchForestDomainAndDefineForestObject
-#Notify User to enter Forest Domain to Search. Then define the Forest Object Once
-Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
-Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
-function AskForForest()
-{
-    Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
-    $ForestToSearch = Read-Host
-    Write-Host " "
-    if($ForestToSearch)
+
+    #region DisplayLogo
+    #Start actual script by posting and asking user for responses
+    foreach($L in $MylogoArray){Centeralize $L "green"}
+    Centeralize $ScriptName "White"
+    #endregion
+    #region AskForWebAppURL
+    function AskForWebAppURL()
     {
-        Try{
-        $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
-        $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+        #Notify User to enter the Site Collection URL then check if it exits.
+        Centeralize "Please enter a SharePoint Web App URL`n"
+        Write-host "SharePoint Web Application URL: " -ForegroundColor Magenta -NoNewline
+        $Script:WebAppURL = Read-Host
+        Write-Host " "
+        if(!$WebAppURL){AskForWebAppURL}
+        if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue){Centeralize "Web App Exists: $WebAppURL`n" "Green"}else{Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;}
+    }
+    AskForWebAppURL
+    #endregion
+    #region AskSearchForestDomainAndDefineForestObject
+    #Notify User to enter Forest Domain to Search. Then define the Forest Object Once
+    Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
+    Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
+    function AskForForest()
+    {
+        Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
+        $ForestToSearch = Read-Host
+        Write-Host " "
+        if($ForestToSearch)
+        {
+            Try{
+            $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
+            $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+            }
+            catch
+            {AskForForest}
         }
-        catch
-        {AskForForest}
+        else
+        {
+            $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+        }
+    }
+    AskForForest
+    #endregion
+    #region AskLogLocation
+    #Notify User to enter Log File location.
+    Centeralize "Please enter a Log file location.`n"
+    Write-host "Log File (Default C:\SPOrphanedUsers.log): " -ForegroundColor Magenta -NoNewline
+    $Logfile = Read-Host
+    Write-Host " "
+    if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
+    #endregion
+    #region AsKIfFilters
+    if(confirm "Apply Filters?")
+    {
+        #region AskFirstFilteredDomain
+        Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
+        Notify User to enter Domain to Filter.
+        Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
+        $Domain1 = Read-Host
+        if(!$Domain1){$Domain1 = "Domain1"}
+        if($Domain1.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
+        Write-Host " "
+        #endregion
+        #region AskSecondFilteredDomain
+        #Notify User to enter Second Domain to Filter.
+        Write-host "Domain (Default Domain2): " -ForegroundColor Magenta -NoNewline
+        $Domain2 = Read-Host
+        if(!$Domain2){$Domain2 = "Domain2"}
+        if($Domain2.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
+        Write-Host " "
+        #endregion
+    }
+    #endregion
+
+    #region Go
+    Centeralize "Verifying SharePoint Web App, Please Wait...`n" "White"
+    if ($WebApp=Get-SPWebApplication $WebAppURL -EA SilentlyContinue)
+    {   
+        #Iterate through all Site Collections
+        foreach($site in $WebApp.Sites) 
+        {     
+            Centeralize "Going through Site: $Site`n" "Cyan"
+            #Get all Webs with Unique Permissions - Which includes Root Webs
+            $WebsColl = $site.AllWebs | Where {$_.HasUniqueRoleAssignments -eq $True} | ForEach-Object {
+                $OrphanedUsers = @()                     
+                Centeralize "Grabbing users from SharePoint Web: $_`n" "Cyan"
+                Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
+                #Iterate through the users collection
+                foreach($User in $_.SiteUsers)
+                {
+                    #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
+                    if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
+                    ($User.LoginName.ToLower() -ne "sharepoint\system") -and
+                    ($User.LoginName.ToLower() -ne "nt authority\local service")  -and
+                    #($user.IsDomainGroup -eq $false ) -and
+                    ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain1") -ne $true) -and
+                    ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain2") -ne $true))
+                    {
+                        if($User.IsDomainGroup)
+                        {
+                            $FullGroupName = $User.LoginName.split("\")  #Domain\UserName
+                            $GroupName = $FullGroupName[1]    #UserName
+                            if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
+                            elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
+                            {
+                                LogWrite "$($User.Name)($($User.LoginName)) GROUP from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
+                                #Make a note of the Orphaned user
+                                $OrphanedUsers+=$User.LoginName
+                            }                       
+                        }#Close If
+                        else
+                        {
+                            $UserName = $User.LoginName.split("\")  #Domain\UserName
+                            $AccountName = $UserName[1]    #UserName
+                            if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
+                            elseif((CheckUserExistsInAD $AccountName) -eq $false)
+                            {
+                                 LogWrite "$($User.Name)($($User.LoginName)) from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
+                                 #Make a note of the Orphaned user
+                                 $OrphanedUsers+=$User.LoginName
+                            }
+                        }#Close Else
+                    }#Close First If                
+                }#End ForEach User
+                #region AskToDeleteUsers
+                # Remove the Orphaned Users from the site
+                $OrphCount = "SP Web Contained this many orphaned accounts: " + $OrphanedUsers.Count
+                Write-Host "$OrphCount`n"
+                if(confirm "Delete Users from $($_)?")
+                {
+                    if(AskHowToDelete "How would like to delete? (A)uto or (M)anual?")
+                    {
+                        AutoDeleteSPUsers $OrphanedUsers $_
+                    }
+                    else #Auto Dele
+                    {
+                        ManuallyDeleteSPUsers $OrphanedUsers $_
+                    }
+                }
+                #endregion
+            }#Close AllWeb ForEach-Object
+        }#Close Site ForEach
+        Centeralize "Script has completed.`n" "Green"
+        Centeralize "See Result file: $LogFile" "White"
     }
     else
     {
-        $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+        Write-Host "Bad Shit! Really, This line should not be hit, means The Web app was valid for creation of the variable but failed here?"
+        #I'd like to remove this if else considering the variable is checked before hand.
     }
-}
-AskForForest
-#endregion
-#region AskLogLocation
-#Notify User to enter Log File location.
-Centeralize "Please enter a Log file location.`n"
-Write-host "Log File (Default C:\SPOrphanedUsers.log): " -ForegroundColor Magenta -NoNewline
-$Logfile = Read-Host
-Write-Host " "
-if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
-#endregion
-#region AsIfFilters
-if(confirm "Apply Filters?")
-{
-    #region AskFirstFilteredDomain
-Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
-#Notify User to enter Domain to Filter.
-Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
-$Domain1 = Read-Host
-if(!$Domain1){$Domain1 = "Domain1"}
-if($Domain1.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
-Write-Host " "
-#endregion
-    #region AskSecondFilteredDomain
-#Notify User to enter Second Domain to Filter.
-Write-host "Domain (Default Domain2): " -ForegroundColor Magenta -NoNewline
-$Domain2 = Read-Host
-if(!$Domain2){$Domain2 = "Domain2"}
-if($Domain2.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
-Write-Host " "
-#endregion
-}
-#endregion
-#region Go
-Centeralize "Verifying SharePoint Web App, Please Wait...`n" "White"
-if ($WebApp=Get-SPWebApplication $WebAppURL -EA SilentlyContinue)
-{   
-    #Iterate through all Site Collections
-    foreach($site in $WebApp.Sites) 
-    {     
-        Centeralize "Going through Site: $Site`n" "Cyan"
-        #Get all Webs with Unique Permissions - Which includes Root Webs
-        $WebsColl = $site.AllWebs | Where {$_.HasUniqueRoleAssignments -eq $True} | ForEach-Object {
-            $OrphanedUsers = @()                     
-            Centeralize "Grabbing users from SharePoint Web: $_`n" "Cyan"
-            Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
-            #Iterate through the users collection
-            foreach($User in $_.SiteUsers)
-            {
-                #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
-                if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
-                ($User.LoginName.ToLower() -ne "sharepoint\system") -and
-                ($User.LoginName.ToLower() -ne "nt authority\local service")  -and
-                #($user.IsDomainGroup -eq $false ) -and
-                ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain1") -ne $true) -and
-                ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain2") -ne $true))
-                {
-                    if($User.IsDomainGroup)
-                    {
-                        $FullGroupName = $User.LoginName.split("\")  #Domain\UserName
-                        $GroupName = $FullGroupName[1]    #UserName
-                        if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
-                        elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
-                        {
-                            LogWrite "$($User.Name)($($User.LoginName)) GROUP from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
-                            #Make a note of the Orphaned user
-                            $OrphanedUsers+=$User.LoginName
-                        }                       
-                    }#Close If
-                    else
-                    {
-                        $UserName = $User.LoginName.split("\")  #Domain\UserName
-                        $AccountName = $UserName[1]    #UserName
-                        if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
-                        elseif((CheckUserExistsInAD $AccountName) -eq $false)
-                        {
-                             LogWrite "$($User.Name)($($User.LoginName)) from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
-                             #Make a note of the Orphaned user
-                             $OrphanedUsers+=$User.LoginName
-                        }
-                    }#Close Else
-                }#Close First If                
-            }#End ForEach User
-            #region AskToDeleteUsers
-            # Remove the Orphaned Users from the site
-            $OrphCount = "SP Web Contained this many orphaned accounts: " + $OrphanedUsers.Count
-            Write-Host "$OrphCount`n"
-            if(confirm "Delete Users from $($_)?")
-            {
-                if(AskHowToDelete "How would like to delete? (A)uto or (M)anual?")
-                {
-                    AutoDeleteSPUsers $OrphanedUsers $_
-                }
-                else #Auto Dele
-                {
-                    ManuallyDeleteSPUsers $OrphanedUsers $_
-                }
-            }
-            #endregion
-        }#Close AllWeb ForEach-Object
-    }#Close Site ForEach
-    Centeralize "Script has completed.`n" "Green"
-    Centeralize "See Result file: $LogFile" "White"
-}
-else
-{
-    Write-Host "Bad Shit! Really, This line should not be hit, means The Web app was valid for creation of the variable but failed here?"
-    #I'd like to remove this if else considering the variable is checked before hand.
-}
-#endregion
+    #endregion
+
 #endregion
