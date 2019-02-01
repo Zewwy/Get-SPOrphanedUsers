@@ -1,12 +1,13 @@
 #region Author-Info
 ########################################################################################################################## 
 # Author: Zewwy (Aemilianus Kehler)
-# Date:   Jan 31, 2019
-# Script: Delete-SPOrphanedUsers
-# This script allows to remove Orphaned Users from the SHarePoint UIL.
-# 
+# Date:   Mar 6, 2018
+# Script: Get-SPOrphanedUsers
+# This script allows to remove Site Collection Features.
+# Cudos to Phil Childs from get-spscripts.com
 # Required parameters: 
-#   Just run the script 
+#   A valid  SharePoint Site Collection URL and a string (case insensitive :D) for the particular SP Feature.
+#   Best to be run from a SharePoint Mgmt Console with an account that has collection admin on the Web URL 
 ##########################################################################################################################
 #endregion
 #region Variables
