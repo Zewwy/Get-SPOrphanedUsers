@@ -216,6 +216,15 @@ function AskHowToDelete($Question)
         }
 }
 #endregion
+#region Objects
+$SPOrphan = New-Object -TypeName psobject
+# Add property to hold Orphaned Users Name
+$SPOrphan | Add-Member -MemberType NoteProperty -Name UserName
+# Add property to hold Orphaned Users Login Name
+$SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
+
+
+#endregion
 #region Run
 
     #region DisplayLogo
@@ -304,7 +313,8 @@ function AskHowToDelete($Question)
             Centeralize "Going through Site: $Site`n" "Cyan"
             #Get all Webs with Unique Permissions - Which includes Root Webs
             $WebsColl = $site.AllWebs | Where {$_.HasUniqueRoleAssignments -eq $True} | ForEach-Object {
-                $OrphanedUsers = @()                     
+                $OrphanedUsers = @()
+                $SPOrphans = @()                     
                 Centeralize "Grabbing users from SharePoint Web: $_`n" "Cyan"
                 Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
                 #Iterate through the users collection
@@ -339,18 +349,21 @@ function AskHowToDelete($Question)
                             {
                                  LogWrite "$($User.Name)($($User.LoginName)) from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
                                  #Make a note of the Orphaned user
-                                 $OrphanedUsers+=$User.LoginName
+                                 $OrphanedUsers         += $User.LoginName
+                                 $SPOrphan.UserName      = $User.Name
+                                 $SPOrphan.UserLoginName = $User.LoginName
+                                 $SPOrphans             += $SPOrphan
                             }
                         }#Close Else
                     }#Close First If                
                 }#End ForEach User
                 #region AskToDeleteUsers
                 # Remove the Orphaned Users from the site
-                $OrphCount = "SP Web" + $_.URL + "Contained this many orphaned accounts: " + $OrphanedUsers.Count
+                $OrphCount = "SP Web " + $_.URL + " contained this many orphaned accounts: " + $SPOrphans.Count
                 Write-Host "$OrphCount`n"
                 if(confirm "List Users? ")
                 {
-                    foreach($orphUser in $OrphanedUsers)
+                    foreach($orphUser in $SPOrphans)
                     {
                         Write-Host $orphUser
                     }
