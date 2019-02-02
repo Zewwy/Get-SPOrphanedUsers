@@ -50,7 +50,7 @@ $pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
 #function takes in a name to alert confirmation of an action
 function confirm($name)
 {
-    Centeralize "$name" "Red";$answer = Read-Host;Write-Host " "
+    Centeralize "$name" "Red" -NoNewLine;$answer = Read-Host;Write-Host " "
     Switch($answer)
     {
         yes{$result=0}
@@ -83,19 +83,35 @@ function Centeralize()
   [Parameter(Position=0,Mandatory=$true)]
   [string]$S,
   [Parameter(Position=1,Mandatory=$false,ParameterSetName="color")]
-  [string]$C
+  [string]$C,
+  [Parameter(Mandatory=$false)]
+  [switch]$NoNewLine = $false
   )
     $sLength = $S.Length
     $padamt =  "{0:N0}" -f (($pswwidth-$sLength)/2)
     $PadNum = $padamt/1 + $sLength #the divide by one is a quick dirty trick to covert string to int
     $CS = $S.PadLeft($PadNum," ").PadRight($PadNum," ") #Pad that shit
-    if ($C) #if variable for color exists run below
-    {    
-        Write-Host $CS -ForegroundColor $C #write that shit to host with color
-    }
-    else #need this to prevent output twice if color is provided
+    if (!$NoNewLine)
     {
-        $CS #write that shit without color
+        if ($C) #if variable for color exists run below
+        {    
+            Write-Host $CS -ForegroundColor $C #write that shit to host with color
+        }
+        else #need this to prevent output twice if color is provided
+        {
+            $CS #write that shit without color
+        }
+    }
+    else
+    {
+        if ($C) #if variable for color exists run below
+        {    
+            Write-Host $CS -ForegroundColor $C -NoNewLine #write that shit to host with color
+        }
+        else #need this to prevent output twice if color is provided
+        {
+            Write-Host $CS -NoNewLine #write that shit without color
+        }
     }
 }
 
@@ -254,12 +270,13 @@ function AskHowToDelete($Question)
     Write-Host " "
     if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
     #endregion
-    #region AsKIfFilters
-    if(confirm "Apply Filters?")
+    #region AskIfFilters
+    Centeralize "Normally if you are running a single domain you will not want to apply a filter.`n" "Yellow" 
+    if(confirm "Apply Filters? ")
     {
         #region AskFirstFilteredDomain
         Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
-        Notify User to enter Domain to Filter.
+        #Notify User to enter Domain to Filter.
         Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
         $Domain1 = Read-Host
         if(!$Domain1){$Domain1 = "Domain1"}
@@ -304,7 +321,7 @@ function AskHowToDelete($Question)
                         if($User.IsDomainGroup)
                         {
                             $FullGroupName = $User.LoginName.split("\")  #Domain\UserName
-                            $GroupName = $FullGroupName[1]    #UserName
+                            $GroupName = $FullGroupName[1]    #GroupName
                             if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
                             elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
                             {
@@ -329,17 +346,13 @@ function AskHowToDelete($Question)
                 }#End ForEach User
                 #region AskToDeleteUsers
                 # Remove the Orphaned Users from the site
-                $OrphCount = "SP Web Contained this many orphaned accounts: " + $OrphanedUsers.Count
+                $OrphCount = "SP Web" + $_.URL + "Contained this many orphaned accounts: " + $OrphanedUsers.Count
                 Write-Host "$OrphCount`n"
-                if(confirm "Delete Users from $($_)?")
+                if(confirm "List Users? ")
                 {
-                    if(AskHowToDelete "How would like to delete? (A)uto or (M)anual?")
+                    foreach($orphUser in $OrphanedUsers)
                     {
-                        AutoDeleteSPUsers $OrphanedUsers $_
-                    }
-                    else #Auto Dele
-                    {
-                        ManuallyDeleteSPUsers $OrphanedUsers $_
+                        Write-Host $orphUser
                     }
                 }
                 #endregion
