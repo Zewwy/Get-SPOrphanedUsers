@@ -1,36 +1,57 @@
 #region Author-Info
 ########################################################################################################################## 
 # Author: Zewwy (Aemilianus Kehler)
-# Date:   Feb 1, 2019
+# Date:   Mar 6, 2018
 # Script: Get-SPOrphanedUsers
-# This script allows to check SharePoints UIL for orphaned users.
+# This script allows to remove Site Collection Features.
 # Cudos to Phil Childs from get-spscripts.com
 # Required parameters: 
-#   A SharePoint Web Application URL 
+#   A valid  SharePoint Site Collection URL and a string (case insensitive :D) for the particular SP Feature.
+#   Best to be run from a SharePoint Mgmt Console with an account that has collection admin on the Web URL 
 ##########################################################################################################################
 #endregion
 #region Variables
 ##########################################################################################################################
 #   Variables
 ##########################################################################################################################
-#File not found from SQL query response
-$BadfileQry = "Sorry mate but it seems the dingo ate your file."
 #MyLogoArray
 $MylogoArray = @(
-    ("#####################################"),
-    ("# This script is brought to you by: #"),
-    ("#                                   #"),
-    ("#             Zewwy                 #"),
-    ("#                                   #"),
-    ("#####################################"),
+    ("###############################################################"),
+    ("#              This script is brought to you by:              #"),
+    ("#      ___         ___         ___         ___                #"),
+    ("#     /  /\       /  /\       /__/\       /__/\        ___    #"),
+    ("#    /  /::|     /  /:/_     _\_ \:\     _\_ \:\      /__/|   #"),
+    ("#   /  /:/:|    /  /:/ /\   /__/\ \:\   /__/\ \:\    |  |:|   #"),
+    ("#  /  /:/|:|__ /  /:/ /:/_ _\_ \:\ \:\ _\_ \:\ \:\   |  |:|   #"),
+    ("# /__/:/ |:| //__/:/ /:/ //__/\ \:\ \:/__/\ \:\ \:\__|__|:|   #"),
+    ("# \__\/  |:|/:\  \:\/:/ /:\  \:\ \:\/:\  \:\ \:\/:/__/::::\   #"),
+    ("#     |  |:/:/ \  \::/ /:/ \  \:\ \::/ \  \:\ \::/\__\\~~\:\  #"),
+    ("#     |  |::/   \  \:\/:/   \  \:\/:/   \  \:\/:/      \  \:\ #"),
+    ("#     |  |:/     \  \::/     \  \::/     \  \::/        \__\/ #"),
+    ("#     |__|/       \__\/       \__\/       \__\/               #"),
+    ("###############################################################"),
     (" ")
 )
-
-$ScriptName = "Get-SPOrphanedUsers; cause some SharePoint users just suck and don't exist.`n"
-$SQLServer = "Server\Instance"
-$DB = "WSS_Content"
-#If domain vars are not altered, and do not exist script still works fine
-$Logfile = "C:\SPOrphanedUsers.log"
+#Script Definition
+$ScriptName = "Get-SPOrphanedUsers; cause some SharePoint users are just orphans."
+$OrphanScript = @(
+    ("   _________________________________________   "),
+    ("  /                                         \  "),
+    (" | I am so sick of hearing about your stupid | "),
+    (" | orphans! Nachoooooooooooooooooooo!!!!     | "),
+    ("  \_________________________________________/  "),
+    ("         \                                     "),
+    ("          \  .-.                               "),
+    ("             / \)                              "),
+    ("             OO\ )                             "),
+    ("             l  C )                            "),
+    ("            (\O (| )                           "),
+    ("            (_\(_(_)                           "),
+    (" ")
+)
+#If domain vars are not altered, and do not exist, script still works fine
+#Script Variables, Domain1 and Domain2 are the domains to be filtered.
+$Logfile = "C:\temp\SPOrphanedUsers.log"
 $Domain1 = "Domain1"
 $Domain2 = "Domain2"
 #------------------------------------------------------------------------------------------------------------------------
@@ -38,9 +59,8 @@ $Domain2 = "Domain2"
 #------------------------------------------------------------------------------------------------------------------------
 $pswheight = (get-host).UI.RawUI.MaxWindowSize.Height
 $pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
-# Script Variables, Domain1 and Domain2 are the domains to be filtered.
-
 #endregion
+
 #region Functions
 ##########################################################################################################################
 #   Functions
@@ -192,6 +212,7 @@ function AskHowToDelete($Question)
     #Start actual script by posting and asking user for responses
     foreach($L in $MylogoArray){Centeralize $L "green"}
     Centeralize $ScriptName "White"
+    foreach($L in $OrphanScript){Centeralize $L "white"}
     #endregion
     #region AskForWebAppURL
     function AskForWebAppURL()
@@ -208,32 +229,38 @@ function AskHowToDelete($Question)
     #endregion
     #region AskSearchForestDomainAndDefineForestObject
     #Notify User to enter Forest Domain to Search. Then define the Forest Object Once
-    if(confirm "Do you have a forest trust? " "Blue")
-    {
+
         Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
         Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
         Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
         function AskForForest()
         {
-            Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
-            $ForestToSearch = Read-Host
-            Write-Host " "
-            if($ForestToSearch)
+            if(confirm "Do you have a forest trust? " "Blue")
             {
-                Try{
-                $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
-                $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+                Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
+                $ForestToSearch = Read-Host
+                Write-Host " "
+                if($ForestToSearch)
+                {
+                    Try{
+                    $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
+                    $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+                    }
+                    catch
+                    {AskForForest}
                 }
-                catch
-                {AskForForest}
-            }
-            else
-            {
+                else
+                {
+                    $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+                }
+             }
+             else
+             {
                 $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-            }
+             }
         }
         AskForForest
-}
+
     #endregion
     #region AskIfFilters
     Centeralize "Normally if you are running a single domain you will not want to apply a filter.`n" "Yellow" 
@@ -266,19 +293,17 @@ function AskHowToDelete($Question)
         #Iterate through all Site Collections
         foreach($site in $WebApp.Sites) 
         {     
+            $OrphanedUsers = @()
             Centeralize "Going through $Site`n" "Cyan"
-            #Get all Webs with Unique Permissions - Which includes Root Webs 
-            # I feel like I copied this code from somwhere to iterate through all the sub sites for permissions gathering
-            # Since I noticed all sub sites shared the UIL from the parent site collection I appended [0] to simply only go
-            # through each site once, I could clean this up but it was an easy dirty hack to get the results I wanted
-            try{
-            $WebsColl = $site.AllWebs | Where {$_.HasUniqueRoleAssignments -eq $True} | ForEach-Object {
-                #$SPOrphans = @()                     
-                Centeralize "Grabbing users from SharePoint Web: $_`n" "Cyan"
+            try{$site.AllWebs | Out-null
+                $SPSiteMainWeb = $site.AllWebs[0] | Where {$_.HasUniqueRoleAssignments -eq $True}                  
+                Centeralize "Grabbing users from SharePoint Web: $SPSiteMainWeb`n" "Cyan"
                 Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
                 #Iterate through the users collection
-                foreach($User in $_.SiteUsers)
+                $SPOrphans = @()
+                foreach($User in $SPSiteMainWeb.SiteUsers)
                 {
+                    #Write-Host "Hi my name is: " + $User.LoginName + " with a count of " + $SPSiteMainWeb.SiteUsers.Count
                     #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
                     if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
                     ($User.LoginName.ToLower() -ne "sharepoint\system") -and
@@ -307,7 +332,7 @@ function AskHowToDelete($Question)
                             if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
                             elseif((CheckUserExistsInAD $AccountName) -eq $false)
                             {      
-                                 $SPOrphans = @()
+                                 
                                  $SPOrphan = New-Object -TypeName psobject
                                  # Add property to hold Orphaned Users Name
                                  $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
@@ -318,11 +343,12 @@ function AskHowToDelete($Question)
                         }#Close Else
                     }#Close First If                
                 }#End ForEach User
-                #region AskToDeleteUsers
+                #region AskHowtoDisplayList
                 # Remove the Orphaned Users from the site
-                $OrphCount = "SP Web " + $_.URL + " contained this many orphaned accounts: "
+                $OrphCount = "SP Web " + $SPSiteMainWeb.URL + " contained this many orphaned accounts: "
                 Centeralize "$OrphCount" "Yellow" -NoNewLine
                 Write-Host $SPOrphans.Count -ForegroundColor Red
+                
                 Write-Host " "
                 if(confirm "List Users? " "Blue")
                 {
@@ -342,11 +368,10 @@ function AskHowToDelete($Question)
  #   #endregion
                 }
                 #endregion
-            }#Close AllWeb ForEach-Object
-            }catch{Centeralize "Sorry it appears something went wrong, Check yo privliges!"}
+            #}#Close AllWeb ForEach-Object            
+        }catch{Centeralize "Sorry it appears you lack something, Check yo privliges!`n" "red"} 
         }#Close Site ForEach
         Centeralize "Script has completed.`n" "Green"
-        Centeralize "See Result file: $LogFile" "White"
     }
     #endregion Go
 
