@@ -1,13 +1,12 @@
 #region Author-Info
 ########################################################################################################################## 
 # Author: Zewwy (Aemilianus Kehler)
-# Date:   Mar 6, 2018
+# Date:   Feb 1, 2019
 # Script: Get-SPOrphanedUsers
-# This script allows to remove Site Collection Features.
+# This script allows to check SharePoints UIL for orphaned users.
 # Cudos to Phil Childs from get-spscripts.com
 # Required parameters: 
-#   A valid  SharePoint Site Collection URL and a string (case insensitive :D) for the particular SP Feature.
-#   Best to be run from a SharePoint Mgmt Console with an account that has collection admin on the Web URL 
+#   A SharePoint Web Application URL 
 ##########################################################################################################################
 #endregion
 #region Variables
@@ -48,9 +47,15 @@ $pswwidth = (get-host).UI.RawUI.MaxWindowSize.Width
 ##########################################################################################################################
 
 #function takes in a name to alert confirmation of an action
-function confirm($name)
+function confirm()
 {
-    Centeralize "$name" "Red" -NoNewLine;$answer = Read-Host;Write-Host " "
+  param(
+  [Parameter(Position=0,Mandatory=$true)]
+  [string]$name,
+  [Parameter(Position=1,Mandatory=$false,ParameterSetName="color")]
+  [string]$C
+  )
+    Centeralize "$name" "$C" -NoNewLine;$answer = Read-Host;Write-Host " "
     Switch($answer)
     {
         yes{$result=0}
@@ -65,15 +70,6 @@ function confirm($name)
               0 { Return $true }
               1 { Return $false }
         }
-}
-
-function center($S)
-{
-    $sLength = $S.Length
-    $padamt =  "{0:N0}" -f (($pswwidth-$sLength)/2)
-    $PadNum = $padamt/1 + $sLength #the divide by one is a quick dirty trick to covert string to int
-    $CS = $S.PadLeft($PadNum," ").PadRight($PadNum," ") #Pad that shit
-    Write-Host $CS -NoNewline
 }
 
 #Function to Centeralize Write-Host Output, Just take string variable parameter and pads it
@@ -170,33 +166,6 @@ Function LogWrite
 
    Add-content $Logfile -value $logstring
 }
-#Funcation that gets called if user picks to manually delete
-Function ManuallyDeleteSPUsers($OUsers,$SSite)
-{
-    foreach($OrpUser in $OUsers)
-    {
-        if(confirm "Delete SharePoint User: $($OrpUser)?")
-        {
-            $SSite.SiteUsers.Remove($OrpUser)
-            Centeralize "Removed the Orphaned user $($OrpUser) from $($SSite.URL)" "Red"
-            LogWrite "Removed the Orphaned user $($OrpUser) from $($SSite.URL)"
-        }
-        else
-        {
-            Centeralize "The Orphaned user $($OrpUser) remains in $($SSite.URL)" "Yellow"
-            LogWrite "The Orphaned user $($OrpUser) remains in $($SSite.URL)"
-        }
-    }
-}
-
-Function AutoDeleteSPUsers($OUsers,$SSite)
-{
-    foreach($OrpUser in $OUsers)
-    {
-        $SSite.SiteUsers.Remove($OrpUser)
-        LogWrite "Removed the Orphaned user $($OrpUser) from $($SSite.URL)"
-    }
-}
 
 function AskHowToDelete($Question)
 {
@@ -216,15 +185,7 @@ function AskHowToDelete($Question)
         }
 }
 #endregion
-#region Objects
-$SPOrphan = New-Object -TypeName psobject
-# Add property to hold Orphaned Users Name
-$SPOrphan | Add-Member -MemberType NoteProperty -Name UserName
-# Add property to hold Orphaned Users Login Name
-$SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
 
-
-#endregion
 #region Run
 
     #region DisplayLogo
@@ -247,41 +208,36 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
     #endregion
     #region AskSearchForestDomainAndDefineForestObject
     #Notify User to enter Forest Domain to Search. Then define the Forest Object Once
-    Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
-    Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
-    Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
-    function AskForForest()
+    if(confirm "Do you have a forest trust? " "Blue")
     {
-        Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
-        $ForestToSearch = Read-Host
-        Write-Host " "
-        if($ForestToSearch)
+        Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
+        Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
+        Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
+        function AskForForest()
         {
-            Try{
-            $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
-            $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+            Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
+            $ForestToSearch = Read-Host
+            Write-Host " "
+            if($ForestToSearch)
+            {
+                Try{
+                $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
+                $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+                }
+                catch
+                {AskForForest}
             }
-            catch
-            {AskForForest}
+            else
+            {
+                $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+            }
         }
-        else
-        {
-            $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        }
-    }
-    AskForForest
-    #endregion
-    #region AskLogLocation
-    #Notify User to enter Log File location.
-    Centeralize "Please enter a Log file location.`n"
-    Write-host "Log File (Default C:\SPOrphanedUsers.log): " -ForegroundColor Magenta -NoNewline
-    $Logfile = Read-Host
-    Write-Host " "
-    if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
+        AskForForest
+}
     #endregion
     #region AskIfFilters
     Centeralize "Normally if you are running a single domain you will not want to apply a filter.`n" "Yellow" 
-    if(confirm "Apply Filters? ")
+    if(confirm "Apply Filters? " "blue")
     {
         #region AskFirstFilteredDomain
         Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
@@ -289,7 +245,7 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
         Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
         $Domain1 = Read-Host
         if(!$Domain1){$Domain1 = "Domain1"}
-        if($Domain1.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
+        if($Domain1.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
         Write-Host " "
         #endregion
         #region AskSecondFilteredDomain
@@ -297,7 +253,7 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
         Write-host "Domain (Default Domain2): " -ForegroundColor Magenta -NoNewline
         $Domain2 = Read-Host
         if(!$Domain2){$Domain2 = "Domain2"}
-        if($Domain2.Contains(".")){Centeralize "You have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
+        if($Domain2.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
         Write-Host " "
         #endregion
     }
@@ -310,11 +266,14 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
         #Iterate through all Site Collections
         foreach($site in $WebApp.Sites) 
         {     
-            Centeralize "Going through Site: $Site`n" "Cyan"
-            #Get all Webs with Unique Permissions - Which includes Root Webs
+            Centeralize "Going through $Site`n" "Cyan"
+            #Get all Webs with Unique Permissions - Which includes Root Webs 
+            # I feel like I copied this code from somwhere to iterate through all the sub sites for permissions gathering
+            # Since I noticed all sub sites shared the UIL from the parent site collection I appended [0] to simply only go
+            # through each site once, I could clean this up but it was an easy dirty hack to get the results I wanted
+            try{
             $WebsColl = $site.AllWebs | Where {$_.HasUniqueRoleAssignments -eq $True} | ForEach-Object {
-                $OrphanedUsers = @()
-                $SPOrphans = @()                     
+                #$SPOrphans = @()                     
                 Centeralize "Grabbing users from SharePoint Web: $_`n" "Cyan"
                 Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
                 #Iterate through the users collection
@@ -330,15 +289,16 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
                     {
                         if($User.IsDomainGroup)
                         {
-                            $FullGroupName = $User.LoginName.split("\")  #Domain\UserName
-                            $GroupName = $FullGroupName[1]    #GroupName
-                            if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
-                            elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
-                            {
-                                LogWrite "$($User.Name)($($User.LoginName)) GROUP from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
-                                #Make a note of the Orphaned user
-                                $OrphanedUsers+=$User.LoginName
-                            }                       
+                            #----- I haven't implemented custom object code base for the groups yet --------
+                            #$FullGroupName = $User.LoginName.split("\")  #Domain\UserName
+                            #$GroupName = $FullGroupName[1]    #GroupName
+                            #if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
+                            #elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
+                            #{
+                            #    LogWrite "$($User.Name)($($User.LoginName)) GROUP from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
+                            #    #Make a note of the Orphaned user
+                            #    $OrphanedUsers+=$User.LoginName
+                            #}                       
                         }#Close If
                         else
                         {
@@ -346,39 +306,48 @@ $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName
                             $AccountName = $UserName[1]    #UserName
                             if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
                             elseif((CheckUserExistsInAD $AccountName) -eq $false)
-                            {
-                                 LogWrite "$($User.Name)($($User.LoginName)) from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
-                                 #Make a note of the Orphaned user
-                                 $OrphanedUsers         += $User.LoginName
-                                 $SPOrphan.UserName      = $User.Name
-                                 $SPOrphan.UserLoginName = $User.LoginName
-                                 $SPOrphans             += $SPOrphan
+                            {      
+                                 $SPOrphans = @()
+                                 $SPOrphan = New-Object -TypeName psobject
+                                 # Add property to hold Orphaned Users Name
+                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
+                                 # Add property to hold Orphaned Users Login Name
+                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
+                                 $SPOrphans = $SPOrphans + $SPOrphan
                             }
                         }#Close Else
                     }#Close First If                
                 }#End ForEach User
                 #region AskToDeleteUsers
                 # Remove the Orphaned Users from the site
-                $OrphCount = "SP Web " + $_.URL + " contained this many orphaned accounts: " + $SPOrphans.Count
-                Write-Host "$OrphCount`n"
-                if(confirm "List Users? ")
+                $OrphCount = "SP Web " + $_.URL + " contained this many orphaned accounts: "
+                Centeralize "$OrphCount" "Yellow" -NoNewLine
+                Write-Host $SPOrphans.Count -ForegroundColor Red
+                Write-Host " "
+                if(confirm "List Users? " "Blue")
                 {
                     foreach($orphUser in $SPOrphans)
                     {
-                        Write-Host $orphUser
+                        $Line = "The username is " + $orphUser.UserName + " with a login of " + $orphUser.UserLoginName
+                         Centeralize $Line "red"
                     }
+                    Write-Host ""
+ #   #region AskLogLocation
+ #   #Notify User to enter Log File location.
+ #   Centeralize "Please enter a Log file location.`n"
+ #   Write-host "Log File (Default C:\SPOrphanedUsers.log): " -ForegroundColor Magenta -NoNewline
+ #   $Logfile = Read-Host
+ #   Write-Host " "
+ #   if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
+ #   #endregion
                 }
                 #endregion
             }#Close AllWeb ForEach-Object
+            }catch{Centeralize "Sorry it appears something went wrong, Check yo privliges!"}
         }#Close Site ForEach
         Centeralize "Script has completed.`n" "Green"
         Centeralize "See Result file: $LogFile" "White"
     }
-    else
-    {
-        Write-Host "Bad Shit! Really, This line should not be hit, means The Web app was valid for creation of the variable but failed here?"
-        #I'd like to remove this if else considering the variable is checked before hand.
-    }
-    #endregion
+    #endregion Go
 
-#endregion
+#endregion Run
