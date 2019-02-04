@@ -1,12 +1,12 @@
 #region Author-Info
 ########################################################################################################################## 
 # Author: Zewwy (Aemilianus Kehler)
-# Date:   Mar 6, 2018
+# Date:   Feb 1, 2019
 # Script: Get-SPOrphanedUsers
-# This script allows to remove Site Collection Features.
-# Cudos to Phil Childs from get-spscripts.com
+# This script allows to collect orphan users in a SharePoint Site Collection against multiple forests.
+# 
 # Required parameters: 
-#   A valid  SharePoint Site Collection URL and a string (case insensitive :D) for the particular SP Feature.
+#   A valid  SharePoint Web Application URL and optional strings for domain query and filters, and output options.
 #   Best to be run from a SharePoint Mgmt Console with an account that has collection admin on the Web URL 
 ##########################################################################################################################
 #endregion
