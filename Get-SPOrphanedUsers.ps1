@@ -25,7 +25,7 @@ $MylogoArray = @(
     ("#  /  /:/|:|__ /  /:/ /:/_ _\_ \:\ \:\ _\_ \:\ \:\   |  |:|   #"),
     ("# /__/:/ |:| //__/:/ /:/ //__/\ \:\ \:/__/\ \:\ \:\__|__|:|   #"),
     ("# \__\/  |:|/:\  \:\/:/ /:\  \:\ \:\/:\  \:\ \:\/:/__/::::\   #"),
-    ("#     |  |:/:/ \  \::/ /:/ \  \:\ \::/ \  \:\ \::/\__\\~~\:\  #"),
+    ("#     |  |:/:/ \  \::/ /:/ \  \:\ \::/ \  \:\ \::/   ~\~~\:\  #"),
     ("#     |  |::/   \  \:\/:/   \  \:\/:/   \  \:\/:/      \  \:\ #"),
     ("#     |  |:/     \  \::/     \  \::/     \  \::/        \__\/ #"),
     ("#     |__|/       \__\/       \__\/       \__\/               #"),
@@ -33,7 +33,7 @@ $MylogoArray = @(
     (" ")
 )
 #Script Definition
-$ScriptName = "Get-SPOrphanedUsers; cause some SharePoint users are just orphans."
+$ScriptName = "Get-SPOrphanedUsers; cause some SharePoint users get orphaned."
 $OrphanScript = @(
     ("   _________________________________________   "),
     ("  /                                         \  "),
@@ -83,7 +83,7 @@ function confirm()
         y{$result=0}
         no{$result=1}
         n{$result=1}
-        default{confirm $name}
+        default{confirm $name $C}
     }
     Switch ($result)
         {
@@ -180,29 +180,62 @@ function CheckUserExistsInAD($ADObject)
     CheckForestObject $ADObject $Script:forest
 }
 
-Function LogWrite
+function AskHowToList($Question)
 {
-   Param ([string]$logstring)
-
-   Add-content $Logfile -value $logstring
-}
-
-function AskHowToDelete($Question)
-{
-    Centeralize "$Question`n" "Red";Center " ";$answer = Read-Host;Write-Host " "
+    Centeralize "$Question" "Blue" -NoNewLine;$answer = Read-Host;Write-Host " "
     Switch($answer)
     {
-        Auto{$result=0}
-        a{$result=0}
-        Manual{$result=1}
-        m{$result=1}
-        default{confirm $Question}
+        Console{$result=0}
+        c{$result=0}
+        Screen{$result=0}
+        s{$result=0}
+        Log{$result=1}
+        l{$result=1}
+        LogFile{$result=1}
+        Both{$result=2}
+        b{$result=2}
+        default{AskHowToList $Question}
     }
     Switch ($result)
         {
-              0 { Return $true }
-              1 { Return $false }
+              0 { Return "c" }
+              1 { Return "l" }
+              2 { Return "b" }
         }
+}
+
+function AskHowToLog($Question)
+{
+    Centeralize "$Question" "Blue" -NoNewLine;$answer = Read-Host;Write-Host " "
+    Switch($answer)
+    {
+        Text{$result=0}
+        txt{$result=0}
+        t{$result=0}
+        tx{$result=0}
+        CSV{$result=1}
+        c{$result=1}
+        Comma{$result=1}
+        XML{$result=2}
+        x{$result=2}
+        default{AskHowToLog $Question}
+    }
+    Switch ($result)
+        {
+              0 { Return "t" }
+              1 { Return "c" }
+              2 { Return "x" }
+        }
+}
+
+function AskForLog($Extention)
+{
+    Write-host "Log File: " -ForegroundColor Magenta -NoNewline
+    $Logfile = Read-Host
+    Write-Host " "   
+    if($Logfile -match ".txt|.csv|.xml"){$Logfile = $Logfile.Split(".")[0]}
+    $OIUY = $Logfile + $Extention
+    Return $OIUY   
 }
 #endregion
 
@@ -223,7 +256,14 @@ function AskHowToDelete($Question)
         $Script:WebAppURL = Read-Host
         Write-Host " "
         if(!$WebAppURL){AskForWebAppURL}
-        if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue){Centeralize "Web App Exists: $WebAppURL`n" "Green"}else{Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;}
+        if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue)
+        {
+            Centeralize "Web App Exists: $WebAppURL`n" "Green"
+        }
+        else
+        {
+            Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;
+        }
     }
     AskForWebAppURL
     #endregion
@@ -347,29 +387,99 @@ function AskHowToDelete($Question)
                 # Remove the Orphaned Users from the site
                 $OrphCount = "SP Web " + $SPSiteMainWeb.URL + " contained this many orphaned accounts: "
                 Centeralize "$OrphCount" "Yellow" -NoNewLine
-                Write-Host $SPOrphans.Count -ForegroundColor Red
-                
+                Write-Host $SPOrphans.Count -ForegroundColor Red               
                 Write-Host " "
-                if(confirm "List Users? " "Blue")
+                $htlist = AskHowToList("(Console/Log/Both) How would you like these results displayed? ")
+                switch($htlist)
                 {
-                    foreach($orphUser in $SPOrphans)
-                    {
-                        $Line = "The username is " + $orphUser.UserName + " with a login of " + $orphUser.UserLoginName
-                         Centeralize $Line "red"
+                    c{
+                        foreach($orphUser in $SPOrphans)
+                        {
+                            $Line = "The username is " + $orphUser.UserName + " with a login of " + $orphUser.UserLoginName + "`n"
+                             Centeralize $Line "red"
+                        }
                     }
-                    Write-Host ""
- #   #region AskLogLocation
- #   #Notify User to enter Log File location.
- #   Centeralize "Please enter a Log file location.`n"
- #   Write-host "Log File (Default C:\SPOrphanedUsers.log): " -ForegroundColor Magenta -NoNewline
- #   $Logfile = Read-Host
- #   Write-Host " "
- #   if (!$LogFile){$LogFile="C:\SPOrphanedUsers.log"}
- #   #endregion
+                    l{
+                        switch(AskHowToLog "(Text/CSV/XML) How would you like your log file? ")
+                        {
+                            t{                                
+                                $LogFilewExt = AskForLog(".txt")
+                                #Write-host $LogFilewExt
+                                if(Test-Path $LogFilewExt)
+                                {
+                                    if(confirm "File Exists - Overwrite? " "Red")
+                                    {
+                                        Centeralize "Overwritting file: $LogFilewExt"
+                                        try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                    elseif(confirm "Append? " "Yellow")
+                                    {
+                                        Centeralize "Appending file: $LogFilewExt"
+                                        try{$SPOrphans | Out-File $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
+                                    }
+                                }
+                                else
+                                {
+                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                    {
+                                        try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                }
+                            }
+                            c{
+                                $LogFilewExt = AskForLog(".csv")
+                                #Write-host $LogFilewExt
+                                if(Test-Path $LogFilewExt)
+                                {
+                                    if(confirm "File Exists - Overwrite? " "Red")
+                                    {
+                                        Centeralize "Overwritting file: $LogFilewExt"
+                                        try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                    elseif(confirm "Append? " "Yellow")
+                                    {
+                                        Centeralize "Appending file: $LogFilewExt"
+                                        try{$SPOrphans | Export-CSV $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
+                                    }
+                                }
+                                else
+                                {
+                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                    {
+                                        try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                }
+                            }
+                            x{
+                                $LogFilewExt = AskForLog(".xml")
+                                #Write-host $LogFilewExt
+                                if(Test-Path $LogFilewExt)
+                                {
+                                    if(confirm "File Exists - Overwrite? " "Red")
+                                    {
+                                        Centeralize "Overwritting file: $LogFilewExt"
+                                        try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                    elseif(confirm "Append? " "Yellow")
+                                    {
+                                        Centeralize "Yeahhhh... Export-clixml doesn't support appending, and I don't want to code it's support sorry.`n" "Yellow"
+                                    }
+                                }
+                                else
+                                {
+                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                    {
+                                        try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                    }
+                                }
+                            }
+                        }
+                     }
+                    b{Write-Host "You Selected Both"}
                 }
-                #endregion
+                #endregion HowtoDisplayList
             #}#Close AllWeb ForEach-Object            
-        }catch{Centeralize "Sorry it appears you lack something, Check yo privliges!`n" "red"} 
+        }catch{Centeralize "Sorry it appears you lack site permissions, Check yo privliges!`n" "red"} 
         }#Close Site ForEach
         Centeralize "Script has completed.`n" "Green"
     }
