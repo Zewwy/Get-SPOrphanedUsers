@@ -27,4 +27,4 @@ But ¯\\__(Oo)__/¯
 
 Enjoy.
 
-!["Wheres my picture"](images\getorphans.png)
+!["Wheres my picture"](images/getorphans.png)
