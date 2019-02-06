@@ -170,8 +170,12 @@ function CheckForestGroupObject()
               {
                 return $true
               }
+              else
+              {
+                return $false
+              }
         }
-        return $false
+        
 }
 #Function to check Object against Forest
 function CheckForestObject()
@@ -353,8 +357,7 @@ function AskForLog($Extention)
     {   
         #Iterate through all Site Collections
         foreach($site in $WebApp.Sites) 
-        {     
-            $OrphanedUsers = @()
+        {
             Centeralize "Going through $Site`n" "Cyan"
             try{$site.AllWebs | Out-null
                 $SPSiteMainWeb = $site.AllWebs[0] | Where {$_.HasUniqueRoleAssignments -eq $True}                  
@@ -364,36 +367,45 @@ function AskForLog($Extention)
                 $SPOrphans = @()
                 foreach($User in $SPSiteMainWeb.SiteUsers)
                 {
-                    #Write-Host "Hi my name is: " + $User.LoginName + " with a count of " + $SPSiteMainWeb.SiteUsers.Count
                     #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
                     if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
+                    ($User.DisplayName.ToLower() -ne "nt authority\authenticated users") -and
+                    ($User.DisplayName.ToLower() -ne "everyone") -and
                     ($User.LoginName.ToLower() -ne "sharepoint\system") -and
                     ($User.LoginName.ToLower() -ne "nt authority\local service")  -and
-                    #($user.IsDomainGroup -eq $false ) -and
+                    #($user.IsDomainGroup -eq $true ) -and
                     ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain1") -ne $true) -and
                     ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain2") -ne $true))
                     {
                         if($User.IsDomainGroup)
                         {
                             #----- I haven't implemented custom object code base for the groups yet --------
-                            #$FullGroupName = $User.LoginName.split("\")  #Domain\UserName
-                            #$GroupName = $FullGroupName[1]    #GroupName
-                            #if(!$GroupName){Write "Group name is apparently null.. skipping AD check"}
-                            #elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
-                            #{
-                            #    LogWrite "$($User.Name)($($User.LoginName)) GROUP from $($_.URL) doesn't Exists in AD Forest ($Script:forest)!"       
-                            #    #Make a note of the Orphaned user
-                            #    $OrphanedUsers+=$User.LoginName
-                            #}                       
+                            $FullGroupName = $User.DisplayName.split("\")  #Domain\GroupName
+                            $GroupName = $FullGroupName[1]    #GroupName
+                            if(!$GroupName)
+                            {
+                                $GroupName = $User.DisplayName
+                                if(!$GroupName)
+                                {
+                                    Write "Group name is apparently null.. skipping AD check"
+                                }
+                            }
+                            elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
+                            {
+                                 $SPOrphan = New-Object -TypeName psobject
+                                 # Add property to hold Orphaned Users Name
+                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
+                                 # Add property to hold Orphaned Users Login Name
+                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
+                                 $SPOrphans = $SPOrphans + $SPOrphan
+                            }                       
                         }#Close If
                         else
                         {
-                            $UserName = $User.LoginName.split("\")  #Domain\UserName
-                            $AccountName = $UserName[1]    #UserName
+                            $AccountName = $User.LoginName
                             if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
                             elseif((CheckUserExistsInAD $AccountName) -eq $false)
-                            {      
-                                 
+                            {          
                                  $SPOrphan = New-Object -TypeName psobject
                                  # Add property to hold Orphaned Users Name
                                  $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
