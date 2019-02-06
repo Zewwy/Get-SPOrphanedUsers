@@ -266,256 +266,256 @@ function AskForLog($Extention)
 
 #region Run
 
-    #region DisplayLogo
-    #Start actual script by posting and asking user for responses
-    foreach($L in $MylogoArray){Centeralize $L "green"}
-    Centeralize $ScriptName "White"
-    foreach($L in $OrphanScript){Centeralize $L "white"}
-    #endregion
-    #region AskForWebAppURL
-    function AskForWebAppURL()
-    {
-        #Notify User to enter the Site Collection URL then check if it exits.
-        Centeralize "Please enter a SharePoint Web App URL`n"
-        Write-host "SharePoint Web Application URL: " -ForegroundColor Magenta -NoNewline
-        $Script:WebAppURL = Read-Host
-        Write-Host " "
-        if(!$WebAppURL){AskForWebAppURL}
-        if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue)
-        {
-            Centeralize "Web App Exists: $WebAppURL`n" "Green"
-        }
-        else
-        {
-            Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;
-        }
-    }
-    AskForWebAppURL
-    #endregion
-    #region AskSearchForestDomainAndDefineForestObject
-    #Notify User to enter Forest Domain to Search. Then define the Forest Object Once
+#region DisplayLogo
+#Start actual script by posting and asking user for responses
+foreach($L in $MylogoArray){Centeralize $L "green"}
+Centeralize $ScriptName "White"
+foreach($L in $OrphanScript){Centeralize $L "white"}
+#endregion
 
-        Centeralize "If you know the users exist in the local forest leave this undefined.`n" "Yellow"
-        Centeralize "Otherwise if the users exist in a trusted forest, enter that Forest name.`n" "Yellow"
-        Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
-        function AskForForest()
+#region AskForWebAppURL
+function AskForWebAppURL()
+{
+    #Notify User to enter the Site Collection URL then check if it exits.
+    Centeralize "Please enter a SharePoint Web App URL`n"
+    Write-host "SharePoint Web Application URL: " -ForegroundColor Magenta -NoNewline
+    $Script:WebAppURL = Read-Host
+    Write-Host " "
+    if(!$WebAppURL){AskForWebAppURL}
+    if(Get-SPWebApplication $WebAppURL -ErrorAction SilentlyContinue)
+    {
+        Centeralize "Web App Exists: $WebAppURL`n" "Green"
+    }
+    else
+    {
+        Centeralize "No WebApp Returned.`n" "Yellow";AskForWebAppURL;
+    }
+}
+AskForWebAppURL
+#endregion
+
+#region AskSearchForestDomainAndDefineForestObject
+#Notify User to enter Forest Domain to Search. Then define the Forest Object Once
+    function AskForForest()
+    {
+        if(confirm "Do you have a forest trust? " "Blue")
         {
-            if(confirm "Do you have a forest trust? " "Blue")
+            Centeralize "Pretty much, enter the domain in which this script will query to see if accounts exist.`n" "Yellow"
+            Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
+            $ForestToSearch = Read-Host
+            Write-Host " "
+            if($ForestToSearch)
             {
-                Write-host "Forest (Default: Forest in which this server resides): " -ForegroundColor Magenta -NoNewline
-                $ForestToSearch = Read-Host
-                Write-Host " "
-                if($ForestToSearch)
-                {
-                    Try{
-                    $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
-                    $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
-                    }
-                    catch
-                    {AskForForest}
+                Try{
+                $ForestContext = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $ForestToSearch)
+                $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
                 }
-                else
-                {
-                    $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-                }
-             }
-             else
-             {
+                catch
+                {AskForForest}
+            }
+            else
+            {
                 $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-             }
-        }
-        AskForForest
-
-    #endregion
-    #region AskIfFilters
-    Centeralize "Normally if you are running a single domain you will not want to apply a filter.`n" "Yellow" 
-    if(confirm "Apply Filters? " "blue")
-    {
-        #region AskFirstFilteredDomain
-        Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
-        #Notify User to enter Domain to Filter.
-        Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
-        $Domain1 = Read-Host
-        if(!$Domain1){$Domain1 = "Domain1"}
-        if($Domain1.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
-        Write-Host " "
-        #endregion
-        #region AskSecondFilteredDomain
-        #Notify User to enter Second Domain to Filter.
-        Write-host "Domain (Default Domain2): " -ForegroundColor Magenta -NoNewline
-        $Domain2 = Read-Host
-        if(!$Domain2){$Domain2 = "Domain2"}
-        if($Domain2.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
-        Write-Host " "
-        #endregion
+            }
+         }
+         else
+         {
+            $Script:forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+         }
     }
-    #endregion
+    AskForForest
 
-    #region Go
-    Centeralize "Verifying SharePoint Web App, Please Wait...`n" "White"
-    if ($WebApp=Get-SPWebApplication $WebAppURL -EA SilentlyContinue)
-    {   
-        #Iterate through all Site Collections
-        foreach($site in $WebApp.Sites) 
-        {
-            Centeralize "Going through $Site`n" "Cyan"
-            try{$site.AllWebs | Out-null
-                $SPSiteMainWeb = $site.AllWebs[0] | Where {$_.HasUniqueRoleAssignments -eq $True}                  
-                Centeralize "Grabbing users from SharePoint Web: $SPSiteMainWeb`n" "Cyan"
-                Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
-                #Iterate through the users collection
-                $SPOrphans = @()
-                foreach($User in $SPSiteMainWeb.SiteUsers)
+#endregion
+
+#region AskIfFilters
+Centeralize "Normally if you are running a single domain you will not want to apply a filter.`n" "Yellow" 
+if(confirm "Apply Filters? " "blue")
+{
+    #region AskFirstFilteredDomain
+    Centeralize "Please enter a Domain to Filter. These users will not appear in the log.`n"
+    #Notify User to enter Domain to Filter.
+    Write-host "Domain (Default Domain1): " -ForegroundColor Magenta -NoNewline
+    $Domain1 = Read-Host
+    if(!$Domain1){$Domain1 = "Domain1"}
+    if($Domain1.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain1 = $Domain1.ToLower().Split(".")[0];Centeralize $Domain1 "White"}
+    Write-Host " "
+    #endregion
+    #region AskSecondFilteredDomain
+    #Notify User to enter Second Domain to Filter.
+    Write-host "Domain (Default Domain2): " -ForegroundColor Magenta -NoNewline
+    $Domain2 = Read-Host
+    if(!$Domain2){$Domain2 = "Domain2"}
+    if($Domain2.Contains(".")){Centeralize "`nYou have entered a FQDN domain name, Stripping First part`n" "Cyan"; $Domain2 = $Domain2.ToLower().Split(".")[0];Centeralize $Domain2 "White"}
+    Write-Host " "
+    #endregion
+}
+#endregion
+
+#region Go
+Centeralize "Verifying SharePoint Web App, Please Wait...`n" "White"
+if ($WebApp=Get-SPWebApplication $WebAppURL -EA SilentlyContinue)
+{   
+    #Iterate through all Site Collections
+    foreach($site in $WebApp.Sites) 
+    {
+        Centeralize "Going through $Site`n" "Cyan"
+        try{$site.AllWebs | Out-null
+            $SPSiteMainWeb = $site.AllWebs[0] | Where {$_.HasUniqueRoleAssignments -eq $True}                  
+            Centeralize "Grabbing users from SharePoint Web: $SPSiteMainWeb`n" "Cyan"
+            Centeralize "Verifying if User exists in forest: $Forest`n" "Cyan"   
+            #Iterate through the users collection
+            $SPOrphans = @()
+            foreach($User in $SPSiteMainWeb.SiteUsers)
+            {
+                #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
+                if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
+                ($User.DisplayName.ToLower() -ne "nt authority\authenticated users") -and
+                ($User.DisplayName.ToLower() -ne "everyone") -and
+                ($User.LoginName.ToLower() -ne "sharepoint\system") -and
+                ($User.LoginName.ToLower() -ne "nt authority\local service")  -and
+                #($user.IsDomainGroup -eq $true ) -and
+                ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain1") -ne $true) -and
+                ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain2") -ne $true))
                 {
-                    #Exclude Built-in User Accounts , Security Groups & an external domain "corporate"
-                    if(($User.LoginName.ToLower() -ne "nt authority\authenticated users") -and
-                    ($User.DisplayName.ToLower() -ne "nt authority\authenticated users") -and
-                    ($User.DisplayName.ToLower() -ne "everyone") -and
-                    ($User.LoginName.ToLower() -ne "sharepoint\system") -and
-                    ($User.LoginName.ToLower() -ne "nt authority\local service")  -and
-                    #($user.IsDomainGroup -eq $true ) -and
-                    ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain1") -ne $true) -and
-                    ((($User.LoginName.ToLower().Split("\"))[0]).Contains("$Domain2") -ne $true))
+                    if($User.IsDomainGroup)
                     {
-                        if($User.IsDomainGroup)
+                        #----- I haven't implemented custom object code base for the groups yet --------
+                        $FullGroupName = $User.DisplayName.split("\")  #Domain\GroupName
+                        $GroupName = $FullGroupName[1]    #GroupName
+                        if(!$GroupName)
                         {
-                            #----- I haven't implemented custom object code base for the groups yet --------
-                            $FullGroupName = $User.DisplayName.split("\")  #Domain\GroupName
-                            $GroupName = $FullGroupName[1]    #GroupName
+                            $GroupName = $User.DisplayName
                             if(!$GroupName)
                             {
-                                $GroupName = $User.DisplayName
-                                if(!$GroupName)
+                                Write "Group name is apparently null.. skipping AD check"
+                            }
+                        }
+                        elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
+                        {
+                             $SPOrphan = New-Object -TypeName psobject
+                             # Add property to hold Orphaned Users Name
+                             $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
+                             # Add property to hold Orphaned Users Login Name
+                             $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
+                             $SPOrphans = $SPOrphans + $SPOrphan
+                        }                       
+                    }#Close If
+                    else
+                    {
+                        $AccountName = $User.LoginName
+                        if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
+                        elseif((CheckUserExistsInAD $AccountName) -eq $false)
+                        {          
+                             $SPOrphan = New-Object -TypeName psobject
+                             # Add property to hold Orphaned Users Name
+                             $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
+                             # Add property to hold Orphaned Users Login Name
+                             $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
+                             $SPOrphans = $SPOrphans + $SPOrphan
+                        }
+                    }#Close Else
+                }#Close First If                
+            }#End ForEach User
+            #region AskHowtoDisplayList
+            # Remove the Orphaned Users from the site
+            $OrphCount = "SP Web " + $SPSiteMainWeb.URL + " contained this many orphaned accounts: "
+            Centeralize "$OrphCount" "Yellow" -NoNewLine
+            Write-Host $SPOrphans.Count -ForegroundColor Red               
+            Write-Host " "
+            $htlist = AskHowToList("(Console/Log/Both) How would you like these results displayed? ")
+            switch($htlist)
+            {
+                c{
+                    foreach($orphUser in $SPOrphans)
+                    {
+                        $Line = "The username is " + $orphUser.UserName + " with a login of " + $orphUser.UserLoginName + "`n"
+                         Centeralize $Line "red"
+                    }
+                }
+                l{
+                    switch(AskHowToLog "(Text/CSV/XML) How would you like your log file? ")
+                    {
+                        t{                                
+                            $LogFilewExt = AskForLog(".txt")
+                            #Write-host $LogFilewExt
+                            if(Test-Path $LogFilewExt)
+                            {
+                                if(confirm "File Exists - Overwrite? " "Red")
                                 {
-                                    Write "Group name is apparently null.. skipping AD check"
+                                    Centeralize "Overwritting file: $LogFilewExt"
+                                    try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
+                                elseif(confirm "Append? " "Yellow")
+                                {
+                                    Centeralize "Appending file: $LogFilewExt"
+                                    try{$SPOrphans | Out-File $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
                                 }
                             }
-                            elseif((CheckForestGroupObject $GroupName $Script:forest) -eq $false)
+                            else
                             {
-                                 $SPOrphan = New-Object -TypeName psobject
-                                 # Add property to hold Orphaned Users Name
-                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
-                                 # Add property to hold Orphaned Users Login Name
-                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
-                                 $SPOrphans = $SPOrphans + $SPOrphan
-                            }                       
-                        }#Close If
-                        else
-                        {
-                            $AccountName = $User.LoginName
-                            if(!$AccountName){Write "User Account name is apparently null.. skipping AD check"}
-                            elseif((CheckUserExistsInAD $AccountName) -eq $false)
-                            {          
-                                 $SPOrphan = New-Object -TypeName psobject
-                                 # Add property to hold Orphaned Users Name
-                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserName $User.Name
-                                 # Add property to hold Orphaned Users Login Name
-                                 $SPOrphan | Add-Member -MemberType NoteProperty -Name UserLoginName $User.LoginName
-                                 $SPOrphans = $SPOrphans + $SPOrphan
+                                if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                {
+                                    try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
                             }
-                        }#Close Else
-                    }#Close First If                
-                }#End ForEach User
-                #region AskHowtoDisplayList
-                # Remove the Orphaned Users from the site
-                $OrphCount = "SP Web " + $SPSiteMainWeb.URL + " contained this many orphaned accounts: "
-                Centeralize "$OrphCount" "Yellow" -NoNewLine
-                Write-Host $SPOrphans.Count -ForegroundColor Red               
-                Write-Host " "
-                $htlist = AskHowToList("(Console/Log/Both) How would you like these results displayed? ")
-                switch($htlist)
-                {
-                    c{
-                        foreach($orphUser in $SPOrphans)
-                        {
-                            $Line = "The username is " + $orphUser.UserName + " with a login of " + $orphUser.UserLoginName + "`n"
-                             Centeralize $Line "red"
+                        }
+                        c{
+                            $LogFilewExt = AskForLog(".csv")
+                            #Write-host $LogFilewExt
+                            if(Test-Path $LogFilewExt)
+                            {
+                                if(confirm "File Exists - Overwrite? " "Red")
+                                {
+                                    Centeralize "Overwritting file: $LogFilewExt"
+                                    try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
+                                elseif(confirm "Append? " "Yellow")
+                                {
+                                    Centeralize "Appending file: $LogFilewExt"
+                                    try{$SPOrphans | Export-CSV $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
+                                }
+                            }
+                            else
+                            {
+                                if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                {
+                                    try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
+                            }
+                        }
+                        x{
+                            $LogFilewExt = AskForLog(".xml")
+                            #Write-host $LogFilewExt
+                            if(Test-Path $LogFilewExt)
+                            {
+                                if(confirm "File Exists - Overwrite? " "Red")
+                                {
+                                    Centeralize "Overwritting file: $LogFilewExt"
+                                    try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
+                                elseif(confirm "Append? " "Yellow")
+                                {
+                                    Centeralize "Yeahhhh... Export-clixml doesn't support appending, and I don't want to code it's support sorry.`n" "Yellow"
+                                }
+                            }
+                            else
+                            {
+                                if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
+                                {
+                                    try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
+                                }
+                            }
                         }
                     }
-                    l{
-                        switch(AskHowToLog "(Text/CSV/XML) How would you like your log file? ")
-                        {
-                            t{                                
-                                $LogFilewExt = AskForLog(".txt")
-                                #Write-host $LogFilewExt
-                                if(Test-Path $LogFilewExt)
-                                {
-                                    if(confirm "File Exists - Overwrite? " "Red")
-                                    {
-                                        Centeralize "Overwritting file: $LogFilewExt"
-                                        try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                    elseif(confirm "Append? " "Yellow")
-                                    {
-                                        Centeralize "Appending file: $LogFilewExt"
-                                        try{$SPOrphans | Out-File $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
-                                    }
-                                }
-                                else
-                                {
-                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
-                                    {
-                                        try{$SPOrphans | Out-File $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                }
-                            }
-                            c{
-                                $LogFilewExt = AskForLog(".csv")
-                                #Write-host $LogFilewExt
-                                if(Test-Path $LogFilewExt)
-                                {
-                                    if(confirm "File Exists - Overwrite? " "Red")
-                                    {
-                                        Centeralize "Overwritting file: $LogFilewExt"
-                                        try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                    elseif(confirm "Append? " "Yellow")
-                                    {
-                                        Centeralize "Appending file: $LogFilewExt"
-                                        try{$SPOrphans | Export-CSV $LogFilewExt -NoClobber -Append}catch{Write-Host "Yeahhhh... that didn't work cause: $_.Execpion.Message"}
-                                    }
-                                }
-                                else
-                                {
-                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
-                                    {
-                                        try{$SPOrphans | Export-CSV $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                }
-                            }
-                            x{
-                                $LogFilewExt = AskForLog(".xml")
-                                #Write-host $LogFilewExt
-                                if(Test-Path $LogFilewExt)
-                                {
-                                    if(confirm "File Exists - Overwrite? " "Red")
-                                    {
-                                        Centeralize "Overwritting file: $LogFilewExt"
-                                        try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                    elseif(confirm "Append? " "Yellow")
-                                    {
-                                        Centeralize "Yeahhhh... Export-clixml doesn't support appending, and I don't want to code it's support sorry.`n" "Yellow"
-                                    }
-                                }
-                                else
-                                {
-                                    if(confirm "File Doesn't Exists, attempt creation? " "Yellow")
-                                    {
-                                        try{$SPOrphans | Export-Clixml $LogFilewExt}catch{Write-Host "Yeahhhh... that didn't work $_.Execpion.Message"}
-                                    }
-                                }
-                            }
-                        }
-                     }
-                    b{Write-Host "You Selected Both"}
-                }
-                #endregion HowtoDisplayList
-            #}#Close AllWeb ForEach-Object            
-        }catch{Centeralize "Sorry it appears you lack site permissions, Check yo privliges!`n" "red"} 
-        }#Close Site ForEach
-        Centeralize "Script has completed.`n" "Green"
-    }
-    #endregion Go
+                 }
+                b{Write-Host "You Selected Both"}
+            }
+            #endregion HowtoDisplayList
+        #}#Close AllWeb ForEach-Object            
+    }catch{Centeralize "Sorry it appears you lack site permissions, Check yo privliges!`n" "red"} 
+    }#Close Site ForEach
+    Centeralize "Script has completed.`n" "Green"
+}
+#endregion Go
 
 #endregion Run
