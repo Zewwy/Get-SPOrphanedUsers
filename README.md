@@ -26,3 +26,5 @@ So I instead used a variable in place of each objects $_ specifying the root web
 But ¯\\_(Oo)_/¯
 
 Enjoy.
+
+![](images\getorphans.png)
