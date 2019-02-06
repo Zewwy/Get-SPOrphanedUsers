@@ -21,8 +21,8 @@ Then enter a file name (this can either be fully qualified, of just a name and t
 *Note*
 
 I removed the .AllWebs | Foreach-Object as I found every subsite always contained the same users as the RootWeb
-So I instead used a variable in place of each objects $_ specifying the root web with .AllWebs[0]  (I probably could also accomplish this with .RootWeb
+So I instead used a variable in place of each objects $_ specifying the root web with .AllWebs[0]  (I probably could also accomplish this with .RootWeb)
 
-But ¯\_(Oo)_/¯
+But ¯\\_(Oo)_/¯
 
 Enjoy.
