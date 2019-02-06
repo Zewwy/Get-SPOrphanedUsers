@@ -258,9 +258,9 @@ function AskForLog($Extention)
     Write-host "Log File: " -ForegroundColor Magenta -NoNewline
     $Logfile = Read-Host
     Write-Host " "   
-    if($Logfile -match ".txt|.csv|.xml"){$Logfile = $Logfile.Split(".")[0]}
-    $OIUY = $Logfile + $Extention
-    Return $OIUY   
+    if($Logfile -match ".txt|.csv|.xml"){[IO.Path]::GetFileNameWithoutExtension($Logfile)}
+    $FNwEX = $Logfile + $Extention
+    Return $FNwEX   
 }
 #endregion
 
