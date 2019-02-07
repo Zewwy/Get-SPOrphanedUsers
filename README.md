@@ -28,4 +28,4 @@ But ¯\\_(Oo)_/¯
 
 Enjoy.
 
-![](images\getorphans.png)
+![](images/getorphans.png)
