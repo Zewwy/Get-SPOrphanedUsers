@@ -1,4 +1,4 @@
-# Get-SPOrphanedUsers
+# Get-SPOrphans
 SharePoint Script to create a list of Orphaned Users and groups.
 
 This script is written to simply take, save, and run.
