@@ -2,8 +2,8 @@
 ########################################################################################################################## 
 # Author: Zewwy (Aemilianus Kehler)
 # Date:   Feb 1, 2019
-# Script: Get-SPOrphanedUsers
-# This script allows to collect orphan users in a SharePoint Site Collection against multiple forests.
+# Script: Get-SPOrphans
+# This script allows to collect orphan users and groups in a SharePoint Site Collection against multiple forests.
 # 
 # Required parameters: 
 #   A valid  SharePoint Web Application URL and optional strings for domain query and filters, and output options.

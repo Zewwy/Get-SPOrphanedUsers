@@ -1,5 +1,5 @@
 # Get-SPOrphanedUsers
-SharePoint Script to create a list of Orphaned Users
+SharePoint Script to create a list of Orphaned Users and groups.
 
 This script is written to simply take, save, and run.
 
@@ -11,6 +11,7 @@ Then ask for a domain trust if users are required to be tested agaist a trust do
 If nothing is entered the forest domain in which the front end server is joined is used.
 
 Then you can filter for certain domains as when you have a forest trust users will not return as users as they are in the other domain.
+Filtering groups is in the works, for now one simple has to comment out the loop that iterates the object array
 
 Then it will ask how you would like the results displayed: Console or Log or both (Both hasn't yet been implemented yet lol)
 
@@ -23,8 +24,8 @@ Then enter a file name (this can either be fully qualified, of just a name and t
 I removed the .AllWebs | Foreach-Object as I found every subsite always contained the same users as the RootWeb
 So I instead used a variable in place of each objects $_ specifying the root web with .AllWebs[0]  (I probably could also accomplish this with .RootWeb)
 
-But ¯\\__(Oo)__/¯
+But ¯\\_(Oo)_/¯
 
 Enjoy.
 
-!["Wheres my picture"](images/getorphans.png)
+![](images\getorphans.png)
